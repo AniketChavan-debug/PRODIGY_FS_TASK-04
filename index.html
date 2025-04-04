@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <form id="auth-form">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login / Register</button>
+        </form>
+
+        <div id="chat" style="display:none;">
+            <h2>Chat Room</h2>
+            <div id="messages"></div>
+            <input type="text" id="message" placeholder="Type a message..." />
+            <button id="send">Send</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io('http://localhost:5000');
+        const authForm = document.getElementById('auth-form');
+        const chatDiv = document.getElementById('chat');
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('message');
+        const sendButton = document.getElementById('send');
+
+        let token;
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Register or Login
+            const response = await fetch('http://localhost:5000/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!response.ok) {
+                // Attempt Login if Register fails
+                const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await loginResponse.json();
+                token = data.token;
+            } else {
+                const data = await response.json();
+                token = data.token; // Get token from registration
+            }
+
+            authForm.style.display = 'none';
+            chatDiv.style.display = 'block';
+            socket.emit('joinRoom', 'general'); // Join a default chat room
+        });
+
+        socket.on('message', (message) => {
+            const messageItem = document.createElement('div');
+            messageItem.textContent = message;
+            messagesDiv.appendChild(messageItem);
+        });
+
+        sendButton.addEventListener('click', () => {
+            const message = messageInput.value;
+            socket.emit('message', { room: 'general', message });
+            messageInput.value = '';
+        });
+    </script>
+</body>
+</html>
